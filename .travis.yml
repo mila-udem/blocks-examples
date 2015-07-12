@@ -26,7 +26,7 @@ install:
   - conda install -q --yes python=$TRAVIS_PYTHON_VERSION mkl --file req-travis-conda.txt
   - pip install -q -r https://raw.githubusercontent.com/bartvm/blocks/master/req-travis-pip.txt
   - pip install -q git+git://github.com/bartvm/blocks.git -r https://raw.githubusercontent.com/bartvm/blocks/master/requirements.txt
-  - pip install -q git+git://github.com/mila-udem/blocks-extras.git 
+  - pip install -q git+git://github.com/mdda/blocks-extras.git@ipython-embedding
   - conda install -q --yes bokeh
   - conda install -q --yes pandas
   - curl https://raw.githubusercontent.com/bartvm/fuel/download_travis/.travis-data.sh | bash -s -- mnist
