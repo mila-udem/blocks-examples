@@ -52,3 +52,4 @@ Blocks:
 * `Character-level RNN <https://github.com/johnarevalo/blocks-char-rnn>`_
 * `DRAW model <https://github.com/jbornschein/draw>`_
 * `Speech recognition <https://github.com/rizar/attention-lvcsr>`_
+* `Machine Translation <https://github.com/orhanf/neural-MT>`_
