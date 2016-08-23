@@ -131,7 +131,7 @@ def main(config, tr_stream, dev_stream, use_bokeh=False):
         logger.info("Building sampler")
         extensions.append(
             Sampler(model=search_model, data_stream=tr_stream,
-                    hook_samples=config['hook_samples'],
+                    save_to=config['saveto'], hook_samples=config['hook_samples'],
                     every_n_batches=config['sampling_freq'],
                     src_vocab_size=config['src_vocab_size']))
 

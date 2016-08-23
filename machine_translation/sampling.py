@@ -8,12 +8,74 @@ import re
 import signal
 import time
 
+
+from matplotlib import pyplot
+from matplotlib.backends.backend_pdf import PdfPages
 from blocks.extensions import SimpleExtension
 from blocks.search import BeamSearch
 
 from subprocess import Popen, PIPE
 
 logger = logging.getLogger(__name__)
+
+
+#=====================================================================#
+
+
+def draw_align_map(attend_weights, input_length, sample_length, save_path,
+                   input_words=None, predict_words=None, target_sent=None):
+
+    data = attend_weights.T[:input_length, :sample_length]
+
+    fix, ax = pyplot.subplots()
+    heatmap = ax.pcolor(data, cmap=pyplot.cm.Blues, alpha=0.8)
+
+    fig = pyplot.gcf()
+    fig.set_size_inches(16, 22)
+
+    if target_sent:
+        pyplot.title('Target: ' + target_sent.decode('utf_8'))
+
+    ax.set_frame_on(False)
+
+    ax.set_xlim([0, data.shape[1]])
+    ax.set_ylim([0, data.shape[0]])
+    ax.set_yticks(numpy.arange(data.shape[0]) + 0.5, minor=False)
+    ax.set_xticks(numpy.arange(data.shape[1]) + 0.5, minor=False)
+
+    # ax.invert_yaxis()
+
+    if predict_words:
+        xlabels = map(lambda w: w.decode('utf8'), predict_words)
+    else:
+        xlabels = ['word_{}'.format(i) for i in range(data.shape[1])]
+
+    if input_words:
+        ylabels = map(lambda w: w.decode('utf8'), input_words)
+    else:
+        ylabels = ['word_{}'.format(i) for i in range(data.shape[0])]
+
+    ax.set_xlabel('output sentence')
+    ax.set_xticklabels(xlabels, minor=False)
+    ax.set_ylabel('input sentence')
+    ax.set_yticklabels(ylabels, minor=False)
+
+    pyplot.xticks(rotation=90)
+
+    ax.grid(False)
+
+    for t in ax.xaxis.get_major_ticks():
+        t.tick1On = False
+        t.tick2On = False
+    for t in ax.yaxis.get_major_ticks():
+        t.tick1On = False
+        t.tick2On = False
+
+    pp = PdfPages(save_path)
+    pyplot.savefig(pp, format='pdf')
+    pp.close()
+
+#=====================================================================#
 
 
 class SamplingBase(object):
@@ -39,7 +101,7 @@ class SamplingBase(object):
 class Sampler(SimpleExtension, SamplingBase):
     """Random Sampling from model."""
 
-    def __init__(self, model, data_stream, hook_samples=1,
+    def __init__(self, model, data_stream, save_to, hook_samples=1,
                  src_vocab=None, trg_vocab=None, src_ivocab=None,
                  trg_ivocab=None, src_vocab_size=None, **kwargs):
         super(Sampler, self).__init__(**kwargs)
@@ -53,6 +115,7 @@ class Sampler(SimpleExtension, SamplingBase):
         self.src_vocab_size = src_vocab_size
         self.is_synced = False
         self.sampling_fn = model.get_theano_function()
+        self.save_to = save_to
 
     def do(self, which_callback, *args):
 
@@ -96,20 +159,31 @@ class Sampler(SimpleExtension, SamplingBase):
             target_length = self._get_true_length(target_[i], self.trg_vocab)
 
             inp = input_[i, :input_length]
-            _1, outputs, _2, _3, costs = (self.sampling_fn(inp[None, :]))
+            _1, outputs, _2, attend_weight, costs = (self.sampling_fn(inp[None, :]))
             outputs = outputs.flatten()
             costs = costs.T
 
             sample_length = self._get_true_length(outputs, self.trg_vocab)
+            input_sent = self._idx_to_word(input_[i][:input_length], self.src_ivocab)
+            sample_sent = self._idx_to_word(outputs[:sample_length], self.trg_ivocab)
+            target_sent = self._idx_to_word(target_[i][:target_length], self.trg_ivocab)
 
-            print("Input : ", self._idx_to_word(input_[i][:input_length],
-                                                self.src_ivocab))
-            print("Target: ", self._idx_to_word(target_[i][:target_length],
-                                                self.trg_ivocab))
-            print("Sample: ", self._idx_to_word(outputs[:sample_length],
-                                                self.trg_ivocab))
+            print("Input : ", input_sent)
+            print("Target: ", target_sent)
+            print("Sample: ", sample_sent)
             print("Sample cost: ", costs[:sample_length].sum())
             print()
+
+            n_iter = self.main_loop.status['iterations_done']
+            save_dir = os.path.join(self.save_to, 'iter{}'.format(n_iter))
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+
+            heatmap_path = os.path.join(save_dir, 'sample{}_heatmap.pdf'.format(i))
+            print ('Drawing align heatmap for [sample{}] in [{}]'
+                   .format(i, heatmap_path))
+            draw_align_map(numpy.squeeze(attend_weight), input_length, sample_length,
+                           heatmap_path, input_sent.split(), sample_sent.split(), target_sent)
 
 
 class BleuValidator(SimpleExtension, SamplingBase):
