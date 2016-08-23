@@ -19,23 +19,31 @@ import pprint
 import configurations
 
 from machine_translation import main
-from machine_translation.stream import get_tr_stream, get_dev_stream
 
 logger = logging.getLogger(__name__)
 
 # Get the arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("--proto",  default="get_config_cs2en",
-                    help="Prototype config to use for config")
-parser.add_argument("--bokeh",  default=False, action="store_true",
-                    help="Use bokeh server for plotting")
+parser.add_argument(
+    "--proto",  default="get_config_cs2en",
+    help="Prototype config to use for config")
+parser.add_argument(
+    "--bokeh",  default=False, action="store_true",
+    help="Use bokeh server for plotting")
+parser.add_argument(
+    "--mode", choices=["train", "translate"], default='train',
+    help="The mode to run. In the `train` mode a model is trained."
+         " In the `translate` mode a trained model is used to translate"
+         " an input file and generates tokenized translation.")
+parser.add_argument(
+    "--test-file", default='', help="Input test file for `translate` mode")
 args = parser.parse_args()
 
 
 if __name__ == "__main__":
     # Get configurations for model
     configuration = getattr(configurations, args.proto)()
+    configuration['test_set'] = args.test_file
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))
     # Get data streams and call main
-    main(configuration, get_tr_stream(**configuration),
-         get_dev_stream(**configuration), args.bokeh)
+    main(args.mode, configuration, args.bokeh)
